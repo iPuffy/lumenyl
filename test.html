@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lumenyl WebSocket Test</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        #messages {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        input {
+            width: 70%;
+            padding: 8px;
+        }
+
+        button {
+            padding: 8px 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Lumenyl WebSocket Test</h2>
+
+    <div id="messages"></div>
+
+    <input id="messageInput" type="text" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+
+    <script>const messages = document.getElementById("messages");
+
+function log(text)
+{
+    messages.innerHTML += text + "<br>";
+    messages.scrollTop = messages.scrollHeight;
+}
+
+const socket = new WebSocket("ws://localhost:8848/chat");
+
+socket.onopen = () =>
+{
+    log("<b>Connected!</b>");
+};
+
+socket.onmessage = (event) =>
+{
+    log("Server: " + event.data);
+};
+
+socket.onclose = () =>
+{
+    log("<b>Disconnected.</b>");
+};
+
+socket.onerror = (event) =>
+{
+    log("<b>WebSocket error.</b>");
+    console.error(event);
+};
+
+function sendMessage()
+{
+    const input = document.getElementById("messageInput");
+
+    socket.send(input.value);
+
+    log("You: " + input.value);
+
+    input.value = "";
+}</script>
+
+</body>
+</html>
