@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required tools
+# Install build tools
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     ninja-build \
     build-essential \
-    cmake
+    cmake \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install vcpkg
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg \
@@ -20,14 +21,19 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg \
 
 WORKDIR /app
 
-COPY . .
+# Copy files that rarely change
+COPY CMakeLists.txt .
+COPY vcpkg.json .
+COPY src ./src
+COPY public ./public
 
-# Build
-RUN cmake -B build \
+# Configure and build
+RUN cmake -S . -B build \
+    -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-RUN cmake --build build --config Release
+RUN cmake --build build -j
 
 EXPOSE 10000
 

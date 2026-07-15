@@ -1,16 +1,15 @@
 .git
 .vs
-build
-out
 .vscode
 
+build
+out
+
 *.obj
+*.pdb
 *.exe
 *.dll
-*.pdb
 *.lib
 
 CMakeFiles
 CMakeCache.txt
-
-README.md
