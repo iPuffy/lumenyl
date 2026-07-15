@@ -45,7 +45,8 @@ function log(text)
     messages.scrollTop = messages.scrollHeight;
 }
 
-const socket = new WebSocket("ws://localhost:8848/chat");
+const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+const socket = new WebSocket(protocol + location.host + "/chat");
 
 socket.onopen = () =>
 {
