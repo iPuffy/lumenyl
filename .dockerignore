@@ -1,0 +1,16 @@
+.git
+.vs
+build
+out
+.vscode
+
+*.obj
+*.exe
+*.dll
+*.pdb
+*.lib
+
+CMakeFiles
+CMakeCache.txt
+
+README.md
