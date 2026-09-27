@@ -48,16 +48,17 @@ COPY CMakeLists.txt .
 COPY vcpkg.json .
 COPY src ./src
 
-# Copy the built React frontend
+# Copy React production build
 COPY --from=frontend /app/frontend/dist ./public
 
 # Configure CMake
 RUN cmake -S . -B build \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+    -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DVCPKG_BUILD_TYPE=release
 
-# Build backend with limited parallelism
+# Build backend
 RUN cmake --build build -j2
 
 EXPOSE 10000
