@@ -2,10 +2,19 @@
 
 #include <drogon/WebSocketController.h>
 
+#include <mutex>
+#include <unordered_set>
+
 using namespace drogon;
 
-class ChatSocket : public WebSocketController<ChatSocket>
+class Chat_Socket : public WebSocketController<Chat_Socket>
 {
+private:
+
+	std::mutex mutex;
+
+	std::unordered_set<WebSocketConnectionPtr> registered_clients;
+
 public:
 
 	WS_PATH_LIST_BEGIN

@@ -3,40 +3,77 @@
 
 #include <iostream>
 
-void ChatSocket::handleNewMessage
+void Chat_Socket::handleNewMessage
 (
-	const WebSocketConnectionPtr& wsConn,
-	std::string&& message,
-	const WebSocketMessageType& type
+    const WebSocketConnectionPtr& wsConn,
+    std::string&& message,
+    const WebSocketMessageType& type
 )
 {
-	if (type != WebSocketMessageType::Text)
-	{
-		return;
-	}
+    if (type != WebSocketMessageType::Text)
+    {
+        return;
+    }
 
-	std::cout << "Received: " << message << std::endl;
+    std::cout << "Received: " << message << std::endl;
 
-	MatchmakingService::instance().handleMessage(wsConn, message);
+    if (message == "listener" || message == "talker")
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+
+            registered_clients.insert(wsConn);
+        }
+
+        Matchmaking_Service::instance().add_client(
+            wsConn,
+            message
+        );
+
+        return;
+    }
+
+    if (message == "cancel")
+    {
+        Matchmaking_Service::instance().cancel_matchmaking(wsConn);
+
+        return;
+    }
+
+    if (message == "leave")
+    {
+        Matchmaking_Service::instance().leave_lobby(wsConn);
+
+        return;
+    }
+
+    Matchmaking_Service::instance().handle_message(
+        wsConn,
+        message
+    );
 }
 
-void ChatSocket::handleNewConnection
+void Chat_Socket::handleNewConnection
 (
 	const HttpRequestPtr& req,
 	const WebSocketConnectionPtr& wsConn
 )
 {
-	MatchmakingService::instance().addClient(wsConn);
-
 	std::cout << "Client connected!" << std::endl;
 }
 
-void ChatSocket::handleConnectionClosed
+void Chat_Socket::handleConnectionClosed
 (
 	const WebSocketConnectionPtr& wsConn
 )
 {
-	MatchmakingService::instance().removeClient(wsConn);
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+
+		registered_clients.erase(wsConn);
+	}
+
+	Matchmaking_Service::instance().remove_client(wsConn);
 
 	std::cout << "Client disconnected!" << std::endl;
 }

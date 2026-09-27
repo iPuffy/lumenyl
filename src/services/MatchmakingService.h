@@ -9,40 +9,26 @@
 
 using namespace drogon;
 
-class MatchmakingService
+class Matchmaking_Service
 {
-public:
-
-    static MatchmakingService& instance();
-
-    void addClient
-    (
-        const WebSocketConnectionPtr& connection
-    );
-
-    void removeClient
-    (
-        const WebSocketConnectionPtr& connection
-    );
-
-    void handleMessage
-    (
-        const WebSocketConnectionPtr& sender,
-        const std::string& message
-    );
-
 private:
-
-    void matchNextUser();
 
     std::mutex mutex;
 
-    std::queue<WebSocketConnectionPtr> waitingQueue;
+    std::queue<WebSocketConnectionPtr> listener_queue;
+    std::queue<WebSocketConnectionPtr> talker_queue;
 
     std::unordered_map<
         WebSocketConnectionPtr,
         int
     > matches;
+
+    std::unordered_map<
+        WebSocketConnectionPtr,
+        std::string
+    > client_roles;
+
+    /// Lobbies
 
     struct Lobby
     {
@@ -50,5 +36,43 @@ private:
     };
 
     std::vector<Lobby> lobbies;
-    std::queue<int> emptyLobbies;
+    std::queue<int> empty_lobbies;
+
+public:
+
+    static Matchmaking_Service& instance();
+
+    void match_next_user();
+
+    void remove_from_queue
+    (
+        const WebSocketConnectionPtr& connection
+    );
+
+    void add_client
+    (
+        const WebSocketConnectionPtr& connection,
+        const std::string& role
+    );
+
+    void remove_client
+    (
+        const WebSocketConnectionPtr& connection
+    );
+
+    void cancel_matchmaking
+    (
+        const WebSocketConnectionPtr& connection
+    );
+
+    void leave_lobby
+    (
+        const WebSocketConnectionPtr& connection
+    );
+
+    void handle_message
+    (
+        const WebSocketConnectionPtr& sender,
+        const std::string& message
+    );
 };
