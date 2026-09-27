@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <queue>
+#include <json/json.h>
 
 using namespace drogon;
 
@@ -37,6 +38,11 @@ private:
 
     std::vector<Lobby> lobbies;
     std::queue<int> empty_lobbies;
+
+    std::unordered_map<
+        WebSocketConnectionPtr,
+        Json::Value
+    > public_keys;
 
 public:
 
@@ -74,5 +80,11 @@ public:
     (
         const WebSocketConnectionPtr& sender,
         const std::string& message
+    );
+
+    void store_public_key
+    (
+        const WebSocketConnectionPtr& connection,
+        const Json::Value& public_key
     );
 };

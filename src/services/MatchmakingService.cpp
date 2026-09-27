@@ -171,6 +171,7 @@ void Matchmaking_Service::remove_client
         }
 
         client_roles.erase(connection);
+        public_keys.erase(connection);
     }
 
     match_next_user();
@@ -257,6 +258,7 @@ void Matchmaking_Service::leave_lobby
             }
 
             client_roles.erase(connection);
+            public_keys.erase(connection);
         }
     }
 
@@ -342,10 +344,52 @@ void Matchmaking_Service::match_next_user()
 
         listener->send(json_message);
         talker->send(json_message);
+
+        if (
+            public_keys.contains(listener) &&
+            public_keys.contains(talker)
+            )
+        {
+            Json::StreamWriterBuilder builder;
+
+            Json::Value listener_key_message;
+
+            listener_key_message["type"] =
+                "key_exchange";
+
+            listener_key_message["public_key"] =
+                public_keys[talker];
+
+            listener->send(
+                Json::writeString(
+                    builder,
+                    listener_key_message
+                )
+            );
+
+            Json::Value talker_key_message;
+
+            talker_key_message["type"] =
+                "key_exchange";
+
+            talker_key_message["public_key"] =
+                public_keys[listener];
+
+            talker->send(
+                Json::writeString(
+                    builder,
+                    talker_key_message
+                )
+            );
+        }
     }
 }
 
-void Matchmaking_Service::handle_message(const WebSocketConnectionPtr& sender, const std::string& message)
+void Matchmaking_Service::handle_message
+(
+    const WebSocketConnectionPtr& sender,
+    const std::string& message
+)
 {
     std::vector<WebSocketConnectionPtr> receivers;
 
@@ -353,6 +397,7 @@ void Matchmaking_Service::handle_message(const WebSocketConnectionPtr& sender, c
         std::lock_guard<std::mutex> lock(mutex);
 
         auto it = matches.find(sender);
+
         if (it == matches.end())
         {
             return;
@@ -371,24 +416,22 @@ void Matchmaking_Service::handle_message(const WebSocketConnectionPtr& sender, c
         }
     }
 
-    std::string sender_role = client_roles[sender];
-
-    Json::Value response;
-
-    response["type"] = "chat";
-    response["sender"] = sender_role;
-    response["message"] = message;
-
-    Json::StreamWriterBuilder builder;
-
-    std::string json_message =
-        Json::writeString(builder, response);
-
     for (auto& user : receivers)
     {
         if (user && user->connected())
         {
-            user->send(json_message);
+            user->send(message);
         }
     }
+}
+
+void Matchmaking_Service::store_public_key
+(
+    const WebSocketConnectionPtr& connection,
+    const Json::Value& public_key
+)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+
+    public_keys[connection] = public_key;
 }

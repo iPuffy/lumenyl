@@ -1,5 +1,13 @@
 import { useEffect, useRef } from "react";
 
+import
+    {
+        generate_key_pair,
+        derive_shared_key,
+        encrypt_message,
+        decrypt_message
+    } from "../services/CryptoService";
+
 interface UseChatSocketProps
 {
     on_message: (message: string) => void;
@@ -13,8 +21,18 @@ function useChatSocket
     )
 {
     const socket = useRef<WebSocket | null>(null);
-    const pending_messages = useRef<string[]>([]);
-    const on_message_ref = useRef(on_message);
+
+    const pending_messages =
+        useRef<string[]>([]);
+
+    const on_message_ref =
+        useRef(on_message);
+
+    const private_key =
+        useRef<CryptoKey | null>(null);
+
+    const shared_key =
+        useRef<CryptoKey | null>(null);
 
     useEffect(() =>
     {
@@ -23,73 +41,216 @@ function useChatSocket
 
     useEffect(() =>
     {
-        const protocol =
-            window.location.protocol === "https:"
-                ? "wss:"
-                : "ws:";
+        let cancelled = false;
 
-        const socket_url =
-            `${protocol}//${window.location.host}/chat`;
-
-        console.log("Connecting to:", socket_url);
-
-        const new_socket = new WebSocket(socket_url);
-
-        socket.current = new_socket;
-
-        new_socket.onopen = () =>
+        async function connect()
         {
-            console.log("WebSocket connected");
+            const key_pair =
+                await generate_key_pair();
 
-            for (const message of pending_messages.current)
+            if (cancelled)
             {
-                new_socket.send(message);
+                return;
             }
 
-            pending_messages.current = [];
-        };
+            private_key.current =
+                key_pair.private_key;
 
-        new_socket.onmessage = (event) =>
-        {
-            console.log("Received:", event.data);
+            const protocol =
+                window.location.protocol === "https:"
+                    ? "wss:"
+                    : "ws:";
 
-            on_message_ref.current(event.data);
-        };
+            const socket_url =
+                `${protocol}//${window.location.host}/chat`;
 
-        new_socket.onerror = (error) =>
-        {
-            console.error("WebSocket error:", error);
-        };
+            console.log("Connecting to:", socket_url);
 
-        new_socket.onclose = () =>
-        {
-            console.log("WebSocket closed");
+            const new_socket =
+                new WebSocket(socket_url);
 
-            if (socket.current === new_socket)
+            socket.current = new_socket;
+
+            new_socket.onopen = () =>
             {
-                socket.current = null;
-            }
-        };
+                console.log("WebSocket connected");
+
+                new_socket.send(
+                    JSON.stringify({
+                        type: "key_exchange",
+                        public_key: key_pair.public_key
+                    })
+                );
+
+                for (
+                    const message of pending_messages.current
+                )
+                {
+                    new_socket.send(message);
+                }
+
+                pending_messages.current = [];
+            };
+
+            new_socket.onmessage = async (event) =>
+            {
+                console.log("Received:", event.data);
+
+                let data;
+
+                try
+                {
+                    data = JSON.parse(event.data);
+                }
+                catch
+                {
+                    on_message_ref.current(event.data);
+
+                    return;
+                }
+
+                if (data.type === "key_exchange")
+                {
+                    if (!private_key.current)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        shared_key.current =
+                            await derive_shared_key(
+                                private_key.current,
+                                data.public_key
+                            );
+
+                        console.log(
+                            "Shared encryption key established."
+                        );
+                    }
+                    catch (error)
+                    {
+                        console.error(
+                            "Failed to establish shared key:",
+                            error
+                        );
+                    }
+
+                    return;
+                }
+
+                if (data.type === "encrypted")
+                {
+                    if (!shared_key.current)
+                    {
+                        console.error(
+                            "Received encrypted message before shared key."
+                        );
+
+                        return;
+                    }
+
+                    try
+                    {
+                        const decrypted =
+                            await decrypt_message(
+                                {
+                                    iv: data.iv,
+                                    ciphertext: data.ciphertext
+                                },
+                                shared_key.current
+                            );
+
+                        console.log(
+                            "Decrypted:",
+                            decrypted
+                        );
+
+                        on_message_ref.current(
+                            decrypted
+                        );
+                    }
+                    catch (error)
+                    {
+                        console.error(
+                            "Failed to decrypt message:",
+                            error
+                        );
+                    }
+
+                    return;
+                }
+
+                on_message_ref.current(event.data);
+            };
+
+            new_socket.onerror = (error) =>
+            {
+                console.error(
+                    "WebSocket error:",
+                    error
+                );
+            };
+
+            new_socket.onclose = () =>
+            {
+                console.log("WebSocket closed");
+
+                if (socket.current === new_socket)
+                {
+                    socket.current = null;
+                }
+            };
+        }
+
+        connect();
 
         return () =>
         {
-            new_socket.close();
+            cancelled = true;
 
-            if (socket.current === new_socket)
+            if (socket.current)
             {
+                socket.current.close();
                 socket.current = null;
             }
+
+            private_key.current = null;
+            shared_key.current = null;
         };
     }, []);
 
-    function send_message(message: string)
+    async function send_message
+    (
+        message: string,
+        encrypted: boolean = true
+    )
     {
         if (
             socket.current &&
             socket.current.readyState === WebSocket.OPEN
         )
         {
-            socket.current.send(message);
+            if (encrypted && shared_key.current)
+            {
+                const encrypted_message =
+                    await encrypt_message(
+                        message,
+                        shared_key.current
+                    );
+
+                socket.current.send(
+                    JSON.stringify({
+                        type: "encrypted",
+                        iv: encrypted_message.iv,
+                        ciphertext: encrypted_message.ciphertext
+                    })
+                );
+            }
+            else
+            {
+                socket.current.send(message);
+            }
 
             return;
         }

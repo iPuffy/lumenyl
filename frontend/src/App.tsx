@@ -29,19 +29,6 @@ function App()
     {
         const data = JSON.parse(message);
 
-        if (data.type === "chat")
-        {
-            set_messages(current => [
-                ...current,
-                {
-                    text: data.message,
-                    sender: data.sender
-                }
-            ]);
-
-            return;
-        }
-
         if (data.type === "system")
         {
             if (data.event === "matched")
@@ -54,6 +41,19 @@ function App()
                 {
                     text: data.message,
                     sender: "system"
+                }
+            ]);
+
+            return;
+        }
+
+        if (data.type === "chat")
+        {
+            set_messages(current => [
+                ...current,
+                {
+                    text: data.message,
+                    sender: data.sender
                 }
             ]);
 
@@ -73,14 +73,14 @@ function App()
         set_role(new_role);
         set_messages([]);
 
-        send_message(new_role);
+        send_message(new_role, false);
 
         set_page("waiting");
     }
 
     function cancel_matchmaking()
     {
-        send_message("cancel");
+        send_message("cancel", false);
 
         set_role(null);
 
@@ -89,7 +89,12 @@ function App()
 
     function send_chat_message(message: string)
     {
-        send_message(message);
+        send_message(
+            JSON.stringify({
+                type: "chat",
+                message
+            })
+        );
 
         set_messages(current => [
             ...current,
@@ -102,7 +107,7 @@ function App()
 
     function leave_chat()
     {
-        send_message("leave");
+        send_message("leave", false);
 
         set_messages([]);
         set_role(null);
