@@ -6,11 +6,11 @@ FROM node:22 AS frontend
 
 WORKDIR /app/frontend
 
-COPY FRONTEND/package.json FRONTEND/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 
 RUN npm ci
 
-COPY FRONTEND/ ./
+COPY frontend/ ./
 
 RUN npm run build
 
