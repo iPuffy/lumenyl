@@ -19,9 +19,10 @@ RUN npm run build
 # Stage 2: Build Drogon backend
 # ==========================================
 
-FROM ubuntu:24.04 AS backend
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV VCPKG_MAX_CONCURRENCY=2
 
 # Install build tools
 RUN apt-get update && apt-get install -y \
@@ -47,17 +48,17 @@ COPY CMakeLists.txt .
 COPY vcpkg.json .
 COPY src ./src
 
-# Copy the React production build into Drogon's public directory
+# Copy the built React frontend
 COPY --from=frontend /app/frontend/dist ./public
 
-# Configure
+# Configure CMake
 RUN cmake -S . -B build \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-# Build
-RUN cmake --build build -j
+# Build backend with limited parallelism
+RUN cmake --build build -j2
 
 EXPOSE 10000
 
